@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Job 1: Checks de Qualité (Black, Isort, Flake8)
+  quality_checks:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # Une version suffit pour les checks de style
+          cache: 'pip'
+
+      - name: Install development dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Afficher requirements
+        run: cat requirements-dev.txt
+
+  # Job 2: Tests unitaires et Couverture
+  test:
+    needs: [quality_checks] # S'assure que le style est correct avant de tester
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+
+    steps:
+      # 1) Récupérer le code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) Installer Python + cache pip
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: requirements-dev.txt
+
+      # 3) Installer dépendances (dev) et le package
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install -e . # Installe le package en mode éditable
+
+      # 4) Tests + couverture (échec si < 80%)
+      - name: Run tests
+        run: |
+          pytest \
+            --maxfail=1 -q \
+            --cov=mathutils \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=80
+
+      # 5) (Optionnel) Uploader le rapport coverage.xml
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.python-version }}
+          path: coverage.xml
