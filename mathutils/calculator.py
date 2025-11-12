@@ -71,6 +71,6 @@ def factorial(n):
     120
     """
     if n < 0:
-        raise ValueError("Factorial not defined for negative numbers")
+        raise ValueError("Factorial not defined for negative numbers.")
     x = math.factorial(n)
     return x
